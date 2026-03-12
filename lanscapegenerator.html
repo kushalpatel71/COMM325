@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procedural Terrain Generator</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #8fd0f2;
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #8fd0f2;
+    }
+
+    #scene {
+      position: absolute;
+      inset: 0;
+    }
+
+    .panel {
+      position: absolute;
+      top: 16px;
+      left: 12px;
+      width: 275px;
+      background: #95772a;
+      border-radius: 6px;
+      box-shadow: 0 3px 10px rgba(197, 112, 112, 0.2);
+      padding: 16px 16px 14px;
+      z-index: 5;
+    }
+
+    .panel h2,
+    .panel h3 {
+      margin: 0 0 14px;
+      color: #222;
+      font-weight: 700;
+    }
+
+    .panel h2 {
+      font-size: 18px;
+      margin-top: 2px;
+    }
+
+    .panel h3 {
+      font-size: 18px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #d2d2d2;
+    }
+
+    .control {
+      margin-bottom: 16px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+      color: #2a2a2a;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .value {
+      min-width: 52px;
+      text-align: right;
+      font-weight: 700;
+      color: #444;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 999px;
+      background: #4b4b4b;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #f28c28;
+      cursor: pointer;
+      border: 0;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #3ab800;
+      cursor: pointer;
+      border: 0;
+    }
+
+    .btn {
+      width: 100%;
+      border: 0;
+      border-radius: 4px;
+      background: #3ab800;
+      color: white;
+      padding: 12px 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.12);
+    }
+
+    .btn:hover { filter: brightness(0.98); }
+    .btn:active { transform: translateY(1px); }
+
+    .hint {
+      position: absolute;
+      left: 12px;
+      bottom: 14px;
+      z-index: 6;
+      background: rgba(25, 45, 60, 0.82);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      letter-spacing: 0.2px;
+    }
+
+    @media (max-width: 900px) {
+      .panel {
+        width: 250px;
+        transform: scale(0.94);
+        transform-origin: top left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="scene"></div>
+
+    <div class="panel">
+      <h2>Terrain Parameters</h2>
+
+      <div class="control">
+        <div class="row"><span>Scale (Frequency)</span><span class="value" id="scaleValue">50</span></div>
+        <input id="scale" type="range" min="10" max="120" value="50" step="1" />
+      </div>
+
+      <div class="control">
+        <div class="row"><span>Amplitude (Height)</span><span class="value" id="amplitudeValue">15</span></div>
+        <input id="amplitude" type="range" min="2" max="30" value="15" step="1" />
+      </div>
+
+      <div class="control">
+        <div class="row"><span>Octaves</span><span class="value" id="octavesValue">4</span></div>
+        <input id="octaves" type="range" min="1" max="8" value="4" step="1" />
+      </div>
+
+      <div class="control">
+        <div class="row"><span>Persistence</span><span class="value" id="persistenceValue">0.5</span></div>
+        <input id="persistence" type="range" min="0.2" max="0.9" value="0.5" step="0.05" />
+      </div>
+
+      <div class="control">
+        <div class="row"><span>Lacunarity</span><span class="value" id="lacunarityValue">2.0</span></div>
+        <input id="lacunarity" type="range" min="1.2" max="3.5" value="2.0" step="0.1" />
+      </div>
+
+      <div class="control">
+        <div class="row"><span>Seed</span><span class="value" id="seedValue">1234</span></div>
+        <input id="seed" type="range" min="1" max="9999" value="1234" step="1" />
+      </div>
+
+      <button class="btn" id="regenBtn">Regenerate Terrain</button>
+      <button class="btn" id="randomBtn">Randomize Parameters</button>
+
+      <h3>Audio Synthesis</h3>
+
+      <button class="btn" id="playBtn">Play Terrain as Sound</button>
+      <button class="btn" id="stopBtn">Stop Sound</button>
+
+      <div class="control">
+        <div class="row"><span>Duration (seconds)</span><span class="value" id="durationValue">5</span></div>
+        <input id="duration" type="range" min="1" max="12" value="5" step="1" />
+      </div>
+
+      <div class="control" style="margin-bottom:0;">
+        <div class="row"><span>Base Frequency (Hz)</span><span class="value" id="baseFrequencyValue">220</span></div>
+        <input id="baseFrequency" type="range" min="80" max="880" value="220" step="5" />
+      </div>
+    </div>
+
+    <div class="hint">Use mouse to rotate • Scroll to zoom • Drag to pan</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    const sceneContainer = document.getElementById('scene');
+
+    const ui = {
+      scale: document.getElementById('scale'),
+      amplitude: document.getElementById('amplitude'),
+      octaves: document.getElementById('octaves'),
+      persistence: document.getElementById('persistence'),
+      lacunarity: document.getElementById('lacunarity'),
+      seed: document.getElementById('seed'),
+      duration: document.getElementById('duration'),
+      baseFrequency: document.getElementById('baseFrequency'),
+      regenBtn: document.getElementById('regenBtn'),
+      randomBtn: document.getElementById('randomBtn'),
+      playBtn: document.getElementById('playBtn'),
+      stopBtn: document.getElementById('stopBtn'),
+      values: {
+        scale: document.getElementById('scaleValue'),
+        amplitude: document.getElementById('amplitudeValue'),
+        octaves: document.getElementById('octavesValue'),
+        persistence: document.getElementById('persistenceValue'),
+        lacunarity: document.getElementById('lacunarityValue'),
+        seed: document.getElementById('seedValue'),
+        duration: document.getElementById('durationValue'),
+        baseFrequency: document.getElementById('baseFrequencyValue')
+      }
+    };
+
+    function syncLabels() {
+      ui.values.scale.textContent = ui.scale.value;
+      ui.values.amplitude.textContent = ui.amplitude.value;
+      ui.values.octaves.textContent = ui.octaves.value;
+      ui.values.persistence.textContent = Number(ui.persistence.value).toFixed(2).replace(/0$/, '');
+      ui.values.lacunarity.textContent = Number(ui.lacunarity.value).toFixed(1);
+      ui.values.seed.textContent = ui.seed.value;
+      ui.values.duration.textContent = ui.duration.value;
+      ui.values.baseFrequency.textContent = ui.baseFrequency.value;
+    }
+
+    [ui.scale, ui.amplitude, ui.octaves, ui.persistence, ui.lacunarity, ui.seed, ui.duration, ui.baseFrequency]
+      .forEach(function(input) { input.addEventListener('input', syncLabels); });
+
+    syncLabels();
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    sceneContainer.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x8fd0f2);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(40, 28, 45);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.target.set(0, 4, 0);
+    controls.minDistance = 18;
+    controls.maxDistance = 150;
+    controls.maxPolarAngle = Math.PI / 2.05;
+
+    const ambient = new THREE.HemisphereLight(0xffffff, 0x8d765f, 1.2);
+    scene.add(ambient);
+
+    const sun = new THREE.DirectionalLight(0xffffff, 1.15);
+    sun.position.set(40, 55, 20);
+    sun.castShadow = true;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    scene.add(sun);
+
+    const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+    fill.position.set(-20, 18, -15);
+    scene.add(fill);
+
+    let terrainMesh = null;
+    let terrainHeights = [];
+    let audioCtx = null;
+    let activeNodes = [];
+
+    class SeededRandom {
+      constructor(seed) {
+        this.seed = seed >>> 0;
+      }
+      next() {
+        let t = this.seed += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      }
+    }
+
+    class ValueNoise2D {
+      constructor(seed) {
+        this.seed = seed;
+      }
+      hash(ix, iy) {
+        let h = ix * 374761393 + iy * 668265263 + this.seed * 69069;
+        h = (h ^ (h >> 13)) * 1274126177;
+        return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+      }
+      smooth(t) {
+        return t * t * (3 - 2 * t);
+      }
+      lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+      noise(x, y) {
+        const x0 = Math.floor(x);
+        const y0 = Math.floor(y);
+        const x1 = x0 + 1;
+        const y1 = y0 + 1;
+
+        const sx = this.smooth(x - x0);
+        const sy = this.smooth(y - y0);
+
+        const n00 = this.hash(x0, y0);
+        const n10 = this.hash(x1, y0);
+        const n01 = this.hash(x0, y1);
+        const n11 = this.hash(x1, y1);
+
+        const ix0 = this.lerp(n00, n10, sx);
+        const ix1 = this.lerp(n01, n11, sx);
+        return this.lerp(ix0, ix1, sy) * 2 - 1;
+      }
+    }
+
+    function layeredNoise(x, y, params, noise) {
+      let total = 0;
+      let frequency = 1;
+      let amplitude = 1;
+      let maxValue = 0;
+
+      for (let i = 0; i < params.octaves; i++) {
+        total += noise.noise(x * frequency, y * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= params.persistence;
+        frequency *= params.lacunarity;
+      }
+
+      return total / maxValue;
+    }
+
+    function getParams() {
+      return {
+        scale: Number(ui.scale.value),
+        amplitude: Number(ui.amplitude.value),
+        octaves: Number(ui.octaves.value),
+        persistence: Number(ui.persistence.value),
+        lacunarity: Number(ui.lacunarity.value),
+        seed: Number(ui.seed.value)
+      };
+    }
+
+    function buildTerrain() {
+      const params = getParams();
+      const noise = new ValueNoise2D(params.seed);
+
+      if (terrainMesh) {
+        scene.remove(terrainMesh);
+        terrainMesh.geometry.dispose();
+        terrainMesh.material.dispose();
+      }
+
+      const width = 62;
+      const depth = 62;
+      const segments = 140;
+      const geometry = new THREE.PlaneGeometry(width, depth, segments, segments);
+      geometry.rotateX(-Math.PI / 2);
+
+      const pos = geometry.attributes.position;
+      terrainHeights = [];
+      let minHeight = Infinity;
+      let maxHeight = -Infinity;
+
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const z = pos.getZ(i);
+
+        const nx = (x + width / 2) / params.scale;
+        const nz = (z + depth / 2) / params.scale;
+
+        let h = layeredNoise(nx, nz, params, noise) * params.amplitude;
+        const ridge = Math.abs(layeredNoise(nx * 1.5 + 12.7, nz * 1.5 + 4.3, {
+          scale: params.scale,
+          amplitude: params.amplitude,
+          octaves: Math.max(2, params.octaves - 1),
+          persistence: params.persistence,
+          lacunarity: params.lacunarity,
+          seed: params.seed
+        }, noise));
+
+        h += ridge * (params.amplitude * 0.35);
+
+        const edgeFalloffX = Math.pow(Math.abs(x) / (width / 2), 3.0);
+        const edgeFalloffZ = Math.pow(Math.abs(z) / (depth / 2), 3.0);
+        const cliffMix = Math.max(edgeFalloffX, edgeFalloffZ);
+        h -= cliffMix * params.amplitude * 1.2;
+
+        pos.setY(i, h);
+        terrainHeights.push(h);
+        if (h < minHeight) minHeight = h;
+        if (h > maxHeight) maxHeight = h;
+      }
+
+      geometry.computeVertexNormals();
+
+      const colors = [];
+      const color = new THREE.Color();
+      const seedRand = new SeededRandom(params.seed * 97 + 13);
+
+      const grassHue = 0.28 + seedRand.next() * 0.08;
+      const dirtHue = 0.075 + seedRand.next() * 0.04;
+      const rockHue = 0.08 + seedRand.next() * 0.03;
+      const grassSat = 0.65 + seedRand.next() * 0.2;
+      const dirtSat = 0.25 + seedRand.next() * 0.12;
+      const rockSat = 0.05 + seedRand.next() * 0.08;
+      const grassLightBase = 0.32 + seedRand.next() * 0.08;
+      const dirtLightBase = 0.34 + seedRand.next() * 0.08;
+      const rockLightBase = 0.46 + seedRand.next() * 0.07;
+      const heightRange = Math.max(0.0001, maxHeight - minHeight);
+
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const z = pos.getZ(i);
+        const y = pos.getY(i);
+        const normalizedHeight = (y - minHeight) / heightRange;
+
+        const colorNoise = noise.noise((x + params.seed * 0.1) / 12, (z - params.seed * 0.1) / 12);
+        const patchNoise = noise.noise((x + 200 + params.seed) / 7, (z - 150 - params.seed) / 7);
+        const variation = (colorNoise + 1) * 0.5;
+
+        const slopeVec = new THREE.Vector3();
+        geometry.attributes.normal && slopeVec.fromBufferAttribute(geometry.attributes.normal, i);
+        const steepness = 1 - Math.max(0, slopeVec.y || 0);
+
+        let band = 'grass';
+        if (normalizedHeight > 0.72 || steepness > 0.42) {
+          band = 'rock';
+        } else if (normalizedHeight > 0.38) {
+          band = patchNoise > 0.05 ? 'grass' : 'dirt';
+        } else {
+          band = patchNoise > -0.15 ? 'dirt' : 'grass';
+        }
+
+        if (band === 'grass') {
+          color.setHSL(
+            grassHue + (variation - 0.5) * 0.03,
+            Math.min(1, grassSat),
+            Math.min(0.72, grassLightBase + variation * 0.1 - steepness * 0.08)
+          );
+        } else if (band === 'dirt') {
+          color.setHSL(
+            dirtHue + (variation - 0.5) * 0.025,
+            Math.min(1, dirtSat),
+            Math.min(0.68, dirtLightBase + variation * 0.08 - steepness * 0.05)
+          );
+        } else {
+          color.setHSL(
+            rockHue + (variation - 0.5) * 0.015,
+            Math.min(1, rockSat),
+            Math.min(0.75, rockLightBase + variation * 0.07)
+          );
+        }
+
+        colors.push(color.r, color.g, color.b);
+      }
+
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+      const material = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.98,
+        metalness: 0.0,
+        flatShading: false
+      });
+
+      terrainMesh = new THREE.Mesh(geometry, material);
+      terrainMesh.receiveShadow = true;
+      scene.add(terrainMesh);
+    }
+
+    function randomizeParameters() {
+      const rand = new SeededRandom((Date.now() % 1000000) >>> 0);
+      ui.scale.value = Math.round(25 + rand.next() * 75);
+      ui.amplitude.value = Math.round(8 + rand.next() * 18);
+      ui.octaves.value = Math.round(2 + rand.next() * 4);
+      ui.persistence.value = (0.35 + rand.next() * 0.35).toFixed(2);
+      ui.lacunarity.value = (1.6 + rand.next() * 1.1).toFixed(1);
+      ui.seed.value = Math.round(100 + rand.next() * 8900);
+      syncLabels();
+      buildTerrain();
+    }
+
+    function stopTerrainSound() {
+      activeNodes.forEach(function(node) {
+        try {
+          if (node.stop) node.stop();
+          if (node.disconnect) node.disconnect();
+        } catch (e) {}
+      });
+      activeNodes = [];
+    }
+
+    async function playTerrainAsSound() {
+      stopTerrainSound();
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
+      const duration = Number(ui.duration.value);
+      const baseFrequency = Number(ui.baseFrequency.value);
+      const now = audioCtx.currentTime;
+
+      const sorted = terrainHeights.slice().sort(function(a, b) { return a - b; });
+      const samples = 32;
+      const step = Math.max(1, Math.floor(sorted.length / samples));
+
+      const master = audioCtx.createGain();
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(0.18, now + 0.15);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      master.connect(audioCtx.destination);
+      activeNodes.push(master);
+
+      for (let i = 0; i < samples; i++) {
+        const h = sorted[i * step] || 0;
+        const normalized = (h + 20) / 40;
+        const freq = baseFrequency + normalized * baseFrequency * 2.2 + i * 4;
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const pan = audioCtx.createStereoPanner();
+
+        osc.type = i % 3 === 0 ? 'sine' : (i % 3 === 1 ? 'triangle' : 'sawtooth');
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.linearRampToValueAtTime(freq * (0.96 + (i / samples) * 0.12), now + duration);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.008 + normalized * 0.02, now + 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        pan.pan.setValueAtTime(-1 + (i / (samples - 1)) * 2, now);
+
+        osc.connect(gain);
+        gain.connect(pan);
+        pan.connect(master);
+
+        osc.start(now);
+        osc.stop(now + duration);
+
+        activeNodes.push(osc, gain, pan);
+      }
+    }
+
+    ui.regenBtn.addEventListener('click', buildTerrain);
+    ui.randomBtn.addEventListener('click', randomizeParameters);
+    ui.playBtn.addEventListener('click', playTerrainAsSound);
+    ui.stopBtn.addEventListener('click', stopTerrainSound);
+
+    window.addEventListener('resize', function() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    buildTerrain();
+    animate();
+  </script>
+</body>
+</html>
