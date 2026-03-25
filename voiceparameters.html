@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Reactive Visualizer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      background: #0a0a0f;
+      color: white;
+      overflow: hidden;
+    }
+
+    .ui {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      width: 320px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 16px;
+      padding: 18px;
+      backdrop-filter: blur(10px);
+    }
+
+    .ui h1 {
+      font-size: 22px;
+      margin-bottom: 12px;
+    }
+
+    .ui p {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #d8d8d8;
+      margin-bottom: 10px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 14px 0;
+    }
+
+    button, select {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button {
+      background: #3b82f6;
+      color: white;
+    }
+
+    button:hover {
+      background: #2563eb;
+    }
+
+    select {
+      background: #111827;
+      color: white;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .readout {
+      margin-top: 10px;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .readout span {
+      color: #8be9fd;
+      font-weight: bold;
+    }
+
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="ui">
+    <h1>Voice Reactive Visualizer</h1>
+    <p>
+      Speak, sing, or make sounds into your microphone. Your voice controls
+      the visuals in real time through loudness, pitch zone, and spectral shape.
+    </p>
+
+    <div class="controls">
+      <button id="startBtn">Activate Mic</button>
+      <select id="modeSelect">
+        <option value="rings">Rings</option>
+        <option value="orb">Orb</option>
+        <option value="wave">Wave</option>
+        <option value="burst">Burst</option>
+      </select>
+    </div>
+
+    <div class="readout">
+      <div>Volume: <span id="vol">0</span></div>
+      <div>Peak Frequency Zone: <span id="pitch">None</span></div>
+      <div>Timbre Balance: <span id="timbre">Neutral</span></div>
+      <div>Status: <span id="status">Standby</span></div>
+    </div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const startBtn = document.getElementById("startBtn");
+    const modeSelect = document.getElementById("modeSelect");
+    const volText = document.getElementById("vol");
+    const pitchText = document.getElementById("pitch");
+    const timbreText = document.getElementById("timbre");
+    const statusText = document.getElementById("status");
+
+    let audioContext;
+    let analyser;
+    let dataArray;
+    let freqArray;
+    let micSource;
+    let running = false;
+
+    let smoothedVolume = 0;
+    let hue = 200;
+    let time = 0;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    async function initMic() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.85;
+
+        micSource = audioContext.createMediaStreamSource(stream);
+        micSource.connect(analyser);
+
+        dataArray = new Uint8Array(analyser.fftSize);
+        freqArray = new Uint8Array(analyser.frequencyBinCount);
+
+        running = true;
+        statusText.textContent = "Mic Active";
+        animate();
+      } catch (error) {
+        statusText.textContent = "Microphone Access Denied";
+        alert("Please allow microphone access.");
+        console.error(error);
+      }
+    }
+
+    function getVolume() {
+      analyser.getByteTimeDomainData(dataArray);
+      let sum = 0;
+
+      for (let i = 0; i < dataArray.length; i++) {
+        const sample = (dataArray[i] - 128) / 128;
+        sum += sample * sample;
+      }
+
+      const rms = Math.sqrt(sum / dataArray.length);
+      return rms;
+    }
+
+    function getPeakFrequencyInfo() {
+      analyser.getByteFrequencyData(freqArray);
+
+      let maxVal = 0;
+      let maxIndex = 0;
+
+      for (let i = 0; i < freqArray.length; i++) {
+        if (freqArray[i] > maxVal) {
+          maxVal = freqArray[i];
+          maxIndex = i;
+        }
+      }
+
+      const nyquist = audioContext.sampleRate / 2;
+      const frequency = (maxIndex / freqArray.length) * nyquist;
+
+      let zone = "Low";
+      if (frequency < 200) zone = "Bass";
+      else if (frequency < 500) zone = "Low Mid";
+      else if (frequency < 1200) zone = "Mid";
+      else if (frequency < 3000) zone = "High Mid";
+      else zone = "Treble";
+
+      return { frequency, zone };
+    }
+
+    function getTimbreBalance() {
+      analyser.getByteFrequencyData(freqArray);
+
+      let low = 0, mid = 0, high = 0;
+      const len = freqArray.length;
+
+      for (let i = 0; i < len; i++) {
+        const value = freqArray[i];
+        const ratio = i / len;
+
+        if (ratio < 0.2) low += value;
+        else if (ratio < 0.6) mid += value;
+        else high += value;
+      }
+
+      if (high > low * 1.2) return "Bright";
+      if (low > high * 1.2) return "Warm";
+      return "Neutral";
+    }
+
+    function drawBackground(volume) {
+      const alpha = Math.min(0.2 + volume * 2, 0.5);
+      ctx.fillStyle = `rgba(5, 5, 15, ${alpha})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function drawRings(volume, pitchZone, timbre) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const rings = 10 + Math.floor(volume * 60);
+
+      for (let i = 0; i < rings; i++) {
+        const radius = 20 + i * (8 + volume * 30);
+        const angleOffset = time * 0.01 + i * 0.3;
+
+        ctx.beginPath();
+        for (let a = 0; a < Math.PI * 2; a += 0.08) {
+          const distortion = Math.sin(a * 3 + angleOffset) * (10 + volume * 120);
+          const x = cx + Math.cos(a) * (radius + distortion);
+          const y = cy + Math.sin(a) * (radius + distortion);
+
+          if (a === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+
+        let localHue = hue + i * 7;
+        if (timbre === "Bright") localHue += 60;
+        if (timbre === "Warm") localHue -= 40;
+
+        ctx.strokeStyle = `hsla(${localHue}, 90%, 65%, 0.35)`;
+        ctx.lineWidth = 1 + volume * 5;
+        ctx.stroke();
+      }
+    }
+
+    function drawOrb(volume, pitchZone, timbre) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const baseRadius = 80 + volume * 220;
+
+      for (let i = 0; i < 180; i++) {
+        const angle = (Math.PI * 2 / 180) * i;
+        const pulse = Math.sin(angle * 6 + time * 0.04) * volume * 120;
+        const r = baseRadius + pulse;
+
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+
+        let sat = 80;
+        let light = 60;
+        if (pitchZone === "Bass") light = 45;
+        if (pitchZone === "Treble") light = 75;
+
+        ctx.beginPath();
+        ctx.arc(x, y, 3 + volume * 12, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hue + i * 2}, ${sat}%, ${light}%, 0.7)`;
+        ctx.fill();
+      }
+    }
+
+    function drawWave(volume, pitchZone, timbre) {
+      const rows = 12;
+      const amplitude = 20 + volume * 220;
+
+      for (let r = 0; r < rows; r++) {
+        const yBase = (canvas.height / (rows + 1)) * (r + 1);
+
+        ctx.beginPath();
+        for (let x = 0; x <= canvas.width; x += 8) {
+          const y = yBase + Math.sin(x * 0.01 + time * 0.03 + r) * amplitude * (0.4 + r / rows);
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+
+        let localHue = hue + r * 15;
+        ctx.strokeStyle = `hsla(${localHue}, 85%, 65%, 0.5)`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    function drawBurst(volume, pitchZone, timbre) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const rays = 50 + Math.floor(volume * 150);
+
+      for (let i = 0; i < rays; i++) {
+        const angle = (Math.PI * 2 / rays) * i + time * 0.01;
+        const length = 80 + Math.random() * (80 + volume * 500);
+
+        const x2 = cx + Math.cos(angle) * length;
+        const y2 = cy + Math.sin(angle) * length;
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = `hsla(${hue + i * 3}, 100%, 70%, 0.35)`;
+        ctx.lineWidth = 1 + volume * 4;
+        ctx.stroke();
+      }
+    }
+
+    function animate() {
+      if (!running) return;
+
+      requestAnimationFrame(animate);
+      time++;
+
+      const volume = getVolume();
+      smoothedVolume = smoothedVolume * 0.9 + volume * 0.1;
+
+      const peak = getPeakFrequencyInfo();
+      const timbre = getTimbreBalance();
+
+      volText.textContent = smoothedVolume.toFixed(3);
+      pitchText.textContent = peak.zone;
+      timbreText.textContent = timbre;
+
+      if (peak.zone === "Bass") hue = 20;
+      else if (peak.zone === "Low Mid") hue = 80;
+      else if (peak.zone === "Mid") hue = 180;
+      else if (peak.zone === "High Mid") hue = 260;
+      else hue = 320;
+
+      drawBackground(smoothedVolume);
+
+      const mode = modeSelect.value;
+      if (mode === "rings") drawRings(smoothedVolume, peak.zone, timbre);
+      if (mode === "orb") drawOrb(smoothedVolume, peak.zone, timbre);
+      if (mode === "wave") drawWave(smoothedVolume, peak.zone, timbre);
+      if (mode === "burst") drawBurst(smoothedVolume, peak.zone, timbre);
+    }
+
+    startBtn.addEventListener("click", () => {
+      if (!running) {
+        initMic();
+      }
+    });
+
+    ctx.fillStyle = "white";
+    ctx.font = "28px Arial";
+    ctx.fillText("Click 'Activate Mic' to begin", 40, canvas.height - 50);
+  </script>
+</body>
+</html>
