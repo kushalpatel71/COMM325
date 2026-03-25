@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOICE PATTERNS</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@300;500;700&family=Poppins:wght@300;400;600&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #020b18;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  font-family: 'Poppins', sans-serif;
+}
+
+canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Title */
+#title-block {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+#title-block h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 9px;
+  color: rgba(0, 255, 200, 0.55);
+  text-transform: uppercase;
+}
+
+#mode-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 5px;
+  color: #00ffc8;
+  margin-top: 6px;
+  text-shadow: 0 0 18px rgba(0, 255, 200, 0.7);
+  transition: color 0.8s, text-shadow 0.8s;
+  text-transform: uppercase;
+}
+
+/* Bottom controls */
+#controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  pointer-events: all;
+  background: linear-gradient(to top, rgba(0, 10, 20, 0.82) 0%, transparent 100%);
+}
+
+.mode-btn {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(0, 255, 200, 0.25);
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+}
+
+.mode-btn:hover {
+  color: #00ffc8;
+  border-color: rgba(0, 255, 200, 0.8);
+  box-shadow: 0 0 14px rgba(0, 255, 200, 0.2);
+}
+
+.mode-btn.active {
+  color: #041016;
+  border-color: #00ffc8;
+  background: #00ffc8;
+  text-shadow: none;
+  box-shadow: 0 0 18px rgba(0, 255, 200, 0.45);
+}
+
+#start-btn {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: #00ffc8;
+  background: transparent;
+  border: 1px solid rgba(0, 255, 200, 0.65);
+  padding: 10px 28px;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  text-transform: uppercase;
+  border-radius: 10px;
+}
+
+#start-btn:hover {
+  background: #00ffc8;
+  color: #031015;
+  border-color: #00ffc8;
+  box-shadow: 0 0 24px rgba(0, 255, 200, 0.35);
+}
+
+#start-btn.live {
+  color: rgba(255, 255, 255, 0.45);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: none;
+}
+
+/* Left side freq bars */
+#freq-sidebar {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.freq-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.freq-lbl {
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: rgba(210, 255, 247, 0.42);
+  width: 52px;
+  text-align: right;
+  font-family: 'Poppins', sans-serif;
+}
+
+.freq-track {
+  width: 70px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 0 8px rgba(255,255,255,0.06);
+}
+
+.freq-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width 0.05s;
+  box-shadow: 0 0 10px currentColor;
+}
+
+/* Right side: note display */
+#note-display {
+  position: absolute;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+#note-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 48px;
+  font-weight: 700;
+  color: rgba(0, 255, 200, 0.14);
+  line-height: 1;
+  transition: color 0.2s, text-shadow 0.2s;
+  text-shadow: none;
+}
+
+#note-freq {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(0, 255, 200, 0.3);
+  margin-top: 6px;
+  transition: color 0.2s;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Idle hint */
+#hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.8s;
+}
+
+#hint p {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 300;
+  font-size: 14px;
+  letter-spacing: 5px;
+  color: rgba(0, 255, 200, 0.38);
+  text-transform: uppercase;
+}
+
+#hint.hidden {
+  opacity: 0;
+}
+
+@media (max-width: 900px) {
+  #freq-sidebar,
+  #note-display {
+    display: none;
+  }
+
+  #title-block {
+    top: 20px;
+    width: 90%;
+  }
+
+  #title-block h1 {
+    font-size: 10px;
+    letter-spacing: 6px;
+  }
+
+  #mode-name {
+    font-size: 16px;
+    letter-spacing: 3px;
+  }
+
+  #controls {
+    gap: 10px;
+    padding: 18px 14px;
+  }
+
+  .mode-btn,
+  #start-btn {
+    font-size: 9px;
+    padding: 8px 12px;
+  }
+}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="title-block">
+    <h1>Voice Pattern Generator</h1>
+    <div id="mode-name">LISSAJOUS</div>
+  </div>
+
+  <div id="freq-sidebar">
+    <div class="freq-row">
+      <span class="freq-lbl">BASS</span>
+      <div class="freq-track"><div class="freq-fill" id="bar-bass" style="background:#00ffc8;"></div></div>
+    </div>
+    <div class="freq-row">
+      <span class="freq-lbl">LOW MID</span>
+      <div class="freq-track"><div class="freq-fill" id="bar-lowmid" style="background:#39d0ff;"></div></div>
+    </div>
+    <div class="freq-row">
+      <span class="freq-lbl">MID</span>
+      <div class="freq-track"><div class="freq-fill" id="bar-mid" style="background:#7cf7ff;"></div></div>
+    </div>
+    <div class="freq-row">
+      <span class="freq-lbl">HIGH MID</span>
+      <div class="freq-track"><div class="freq-fill" id="bar-highmid" style="background:#8a7dff;"></div></div>
+    </div>
+    <div class="freq-row">
+      <span class="freq-lbl">TREBLE</span>
+      <div class="freq-track"><div class="freq-fill" id="bar-treble" style="background:#d66bff;"></div></div>
+    </div>
+  </div>
+
+  <div id="note-display">
+    <div id="note-name">—</div>
+    <div id="note-freq">— Hz</div>
+  </div>
+
+  <div id="hint"><p>Speak or sing into your microphone</p></div>
+
+  <div id="controls">
+    <button class="mode-btn active" data-mode="0">Lissajous</button>
+    <button class="mode-btn" data-mode="1">Mandala</button>
+    <button class="mode-btn" data-mode="2">Constellation</button>
+    <button class="mode-btn" data-mode="3">Interference</button>
+    <button class="mode-btn" data-mode="4">All Modes</button>
+    <button class="mode-btn" data-mode="5">Radial Wave</button>
+    <button id="start-btn">Activate Mic</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let W, H, cx, cy;
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    cx = W / 2;
+    cy = H / 2;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Audio state
+  let audioCtx, analyser, freqData, timeData;
+  let running = false;
+
+  // Smoothed audio values
+  let sRMS = 0, sBass = 0, sLowMid = 0, sMid = 0, sHighMid = 0, sTreble = 0;
+  let sPeakFreq = 0, sCentroid = 0;
+  let sHue = 120;
+
+  // Visual state
+  let mode = 0;
+  const MODE_NAMES = [
+    'LISSAJOUS',
+    'MANDALA',
+    'CONSTELLATION',
+    'INTERFERENCE',
+    'ALL MODES',
+    'RADIAL WAVE'
+  ];
+
+  let t = 0;
+  let particles = [];
+  let lissHistory = [];
+  const LISS_HISTORY = 2000;
+
+  for (let i = 0; i < 220; i++) {
+    particles.push(newParticle());
+  }
+
+  function newParticle(fromCenter) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = fromCenter ? 0 : Math.random() * Math.min(W, H) * 0.45;
+    return {
+      x: cx + Math.cos(angle) * r,
+      y: cy + Math.sin(angle) * r,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      size: Math.random() * 2.5 + 0.5,
+      hue: Math.random() * 360,
+      orbitR: Math.random() * Math.min(W, H) * 0.38 + 20,
+      orbitAngle: Math.random() * Math.PI * 2,
+      orbitSpeed: (Math.random() - 0.5) * 0.004
+    };
+  }
+
+  const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+  function freqToNote(freq) {
+    if (freq < 60) return { name: '—', cents: 0 };
+    const midi = 12 * Math.log2(freq / 440) + 69;
+    const note = NOTE_NAMES[Math.round(midi) % 12];
+    return { name: note, freq: Math.round(freq) };
+  }
+
+  function bandEnergy(data, sampleRate, loHz, hiHz) {
+    const bins = data.length;
+    const lo = Math.floor(loHz * bins * 2 / sampleRate);
+    const hi = Math.ceil(hiHz * bins * 2 / sampleRate);
+    let sum = 0, count = 0;
+    for (let i = Math.max(1, lo); i <= Math.min(bins - 1, hi); i++) {
+      sum += data[i] / 255;
+      count++;
+    }
+    return count > 0 ? sum / count : 0;
+  }
+
+  function getPeakFreq(data, sampleRate) {
+    let max = 0, idx = 0;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i] > max) {
+        max = data[i];
+        idx = i;
+      }
+    }
+    return idx * sampleRate / analyser.fftSize;
+  }
+
+  function getSpectralCentroid(data, sampleRate) {
+    let weighted = 0, ampSum = 0;
+    for (let i = 1; i < data.length; i++) {
+      const amp = data[i] / 255;
+      weighted += (i * sampleRate / analyser.fftSize) * amp;
+      ampSum += amp;
+    }
+    return ampSum > 0 ? weighted / ampSum : 0;
+  }
+
+  function getRMS(data) {
+    let s = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128;
+      s += v * v;
+    }
+    return Math.sqrt(s / data.length);
+  }
+
+  document.getElementById('start-btn').addEventListener('click', async () => {
+    if (running) return;
+
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const src = audioCtx.createMediaStreamSource(stream);
+
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 4096;
+      analyser.smoothingTimeConstant = 0.92;
+
+      src.connect(analyser);
+
+      freqData = new Uint8Array(analyser.frequencyBinCount);
+      timeData = new Uint8Array(analyser.fftSize);
+
+      running = true;
+      document.getElementById('start-btn').textContent = 'Listening…';
+      document.getElementById('start-btn').classList.add('live');
+      document.getElementById('hint').classList.add('hidden');
+    } catch (e) {
+      document.getElementById('hint').querySelector('p').textContent = 'Microphone access denied.';
+    }
+  });
+
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mode = parseInt(btn.dataset.mode, 10);
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('mode-name').textContent = MODE_NAMES[mode];
+      lissHistory = [];
+    });
+  });
+
+  function hsl(h, s, l, a = 1) {
+    return `hsla(${((h % 360) + 360) % 360},${s}%,${l}%,${a})`;
+  }
+
+  function drawLissajous(x0, y0, w, h, alpha = 1) {
+    const r = Math.min(w, h) * 0.42;
+
+    const freqRatioA = 1 + sBass * 2;
+    const freqRatioB = 2 + sHighMid * 1;
+    const phaseShift = t * 0.5 + sMid * Math.PI * 0.5;
+    const steps = 700 + Math.floor(sCentroid / 70);
+    const hueBase = sHue;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    const px = x0 + Math.sin(freqRatioA * t * 0.8 + phaseShift) * r * (0.7 + sRMS * 0.5);
+    const py = y0 + Math.sin(freqRatioB * t * 0.8) * r * (0.7 + sBass * 0.4);
+
+    lissHistory.push({ x: px, y: py, hue: hueBase, rms: sRMS });
+    if (lissHistory.length > LISS_HISTORY) lissHistory.shift();
+
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const p = (i / steps) * Math.PI * 2;
+      const lx = x0 + Math.sin(freqRatioA * p + phaseShift) * r * (0.7 + sRMS * 0.5);
+      const ly = y0 + Math.sin(freqRatioB * p) * r * (0.7 + sBass * 0.4);
+      if (i === 0) ctx.moveTo(lx, ly);
+      else ctx.lineTo(lx, ly);
+    }
+    ctx.strokeStyle = hsl(hueBase, 80, 55, 0.12 + sBass * 0.15);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    for (let i = 1; i < lissHistory.length; i++) {
+      const age = i / lissHistory.length;
+      const pt = lissHistory[i];
+      const prev = lissHistory[i - 1];
+
+      ctx.beginPath();
+      ctx.moveTo(prev.x, prev.y);
+      ctx.lineTo(pt.x, pt.y);
+      ctx.strokeStyle = hsl(pt.hue + age * 60, 90, 65, age * 0.8 * alpha);
+      ctx.lineWidth = 1.2 + pt.rms * 4;
+      ctx.shadowBlur = 8 + pt.rms * 20;
+      ctx.shadowColor = hsl(pt.hue, 100, 70);
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.arc(px, py, 1.5 + sRMS * 25, 0, Math.PI * 2);
+    ctx.fillStyle = hsl(hueBase, 100, 90, 0.9);
+    ctx.shadowBlur = 20 + sRMS * 40;
+    ctx.shadowColor = hsl(hueBase, 100, 80);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  function drawMandala(x0, y0, w, h, alpha = 1) {
+    const r = Math.min(w, h) * 0.42;
+    const petals = Math.round(6 + sCentroid / 150);
+    const rotSpeed = sMid * 0.04 + 0.003;
+    const innerR = r * (0.15 + sBass * 0.3);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x0, y0);
+    ctx.rotate(t * rotSpeed);
+
+    for (let ring = 0; ring < 3; ring++) {
+      const rScale = 0.35 + ring * 0.32;
+      const ringHue = sHue + ring * 40;
+      const ringR = r * rScale;
+
+      for (let i = 0; i < petals; i++) {
+        const angle = (i / petals) * Math.PI * 2;
+        const mirror = angle + Math.PI / petals;
+        const bandVal = [sBass, sMid, sTreble][ring % 3];
+
+        const petalLen = ringR * (0.9 + bandVal * 1.2);
+        const petalW = ringR * (0.1 + sMid * 0.15);
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+
+        const cp1x = Math.cos(angle - 0.4) * petalW;
+        const cp1y = Math.sin(angle - 0.4) * petalW;
+        const cp2x = Math.cos(angle) * petalLen;
+        const cp2y = Math.sin(angle) * petalLen;
+        const ex = Math.cos(angle) * petalLen * 0.9;
+        const ey = Math.sin(angle) * petalLen * 0.9;
+
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ex, ey);
+        ctx.bezierCurveTo(
+          Math.cos(mirror) * petalW, Math.sin(mirror) * petalW,
+          0, 0, 0, 0
+        );
+
+        const grad = ctx.createRadialGradient(0, 0, innerR * 0.3, ex, ey, petalLen * 0.1);
+        grad.addColorStop(0, hsl(ringHue, 90, 70, 0.05));
+        grad.addColorStop(0.5, hsl(ringHue + 20, 95, 60, 0.3 + bandVal * 0.4));
+        grad.addColorStop(1, hsl(ringHue + 50, 100, 75, 0));
+
+        ctx.fillStyle = grad;
+        ctx.shadowBlur = 10 + bandVal * 30;
+        ctx.shadowColor = hsl(ringHue, 100, 70);
+        ctx.fill();
+      }
+    }
+
+    const orbR = innerR * (0.5 + sRMS * 1.5);
+    const orbGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, orbR);
+    orbGrad.addColorStop(0, hsl(sHue, 100, 95, 0.9));
+    orbGrad.addColorStop(0.4, hsl(sHue + 30, 90, 60, 0.6));
+    orbGrad.addColorStop(1, hsl(sHue + 60, 80, 40, 0));
+
+    ctx.beginPath();
+    ctx.arc(0, 0, orbR, 0, Math.PI * 2);
+    ctx.fillStyle = orbGrad;
+    ctx.shadowBlur = 30 + sRMS * 60;
+    ctx.shadowColor = hsl(sHue, 100, 80);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  function drawConstellation(x0, y0, w, h, alpha = 1) {
+    const maxR = Math.min(w, h) * 0.46;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    const speed = 0.5 + sTreble * 5;
+    const spread = 0.6 + sRMS * 0.8;
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.orbitAngle += p.orbitSpeed * speed;
+
+      const targetR = p.orbitR * spread * (maxR / (Math.min(W, H) * 0.38));
+      const px = x0 + Math.cos(p.orbitAngle) * Math.min(targetR, maxR);
+      const py = y0 + Math.sin(p.orbitAngle) * Math.min(targetR, maxR) * 0.85;
+
+      p.hue += (sHue + p.orbitAngle * 20 - p.hue) * 0.02;
+
+      const brightness = 40 + sTreble * 35 + sRMS * 25;
+      const size = p.size * (1 + sRMS * 4 + sBass * 2);
+
+      ctx.beginPath();
+      ctx.arc(px, py, size, 0, Math.PI * 2);
+      ctx.fillStyle = hsl(p.hue, 85, brightness, 0.7 + sRMS * 0.3);
+      ctx.shadowBlur = 6 + sTreble * 20;
+      ctx.shadowColor = hsl(p.hue, 100, 80);
+      ctx.fill();
+    }
+
+    const connectDist = 60 + sBass * 80;
+    ctx.lineWidth = 0.4;
+    ctx.shadowBlur = 0;
+
+    for (let i = 0; i < particles.length; i += 2) {
+      const p = particles[i];
+      const px = x0 + Math.cos(p.orbitAngle) * Math.min(p.orbitR * spread, maxR);
+      const py = y0 + Math.sin(p.orbitAngle) * Math.min(p.orbitR * spread, maxR) * 0.85;
+
+      for (let j = i + 1; j < particles.length; j += 3) {
+        const q = particles[j];
+        const qx = x0 + Math.cos(q.orbitAngle) * Math.min(q.orbitR * spread, maxR);
+        const qy = y0 + Math.sin(q.orbitAngle) * Math.min(q.orbitR * spread, maxR) * 0.85;
+        const d = Math.hypot(px - qx, py - qy);
+
+        if (d < connectDist) {
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(qx, qy);
+          ctx.strokeStyle = hsl(p.hue, 70, 65, (1 - d / connectDist) * 0.35);
+          ctx.stroke();
+        }
+      }
+    }
+
+    const nucR = 8 + sRMS * 30 + sBass * 20;
+    const ng = ctx.createRadialGradient(x0, y0, 0, x0, y0, nucR);
+    ng.addColorStop(0, hsl(sHue, 100, 98, 0.95));
+    ng.addColorStop(0.5, hsl(sHue + 40, 90, 65, 0.5));
+    ng.addColorStop(1, hsl(sHue + 80, 80, 40, 0));
+
+    ctx.beginPath();
+    ctx.arc(x0, y0, nucR, 0, Math.PI * 2);
+    ctx.fillStyle = ng;
+    ctx.shadowBlur = 30 + sRMS * 50;
+    ctx.shadowColor = hsl(sHue, 100, 80);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  function drawInterference(x0, y0, w, h, alpha = 1) {
+    const maxR = Math.min(w, h) * 0.46;
+    const waveFreq = 8 + sBass * 6;
+    const distortion = sMid * 0.5 + sHighMid * 0.4;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    const s1x = x0 + Math.cos(t * 0.4) * maxR * 0.3;
+    const s1y = y0 + Math.sin(t * 0.4) * maxR * 0.3;
+    const s2x = x0 - Math.cos(t * 0.4) * maxR * 0.3;
+    const s2y = y0 - Math.sin(t * 0.4) * maxR * 0.3;
+
+    const res = 3;
+
+    for (let px = x0 - maxR; px <= x0 + maxR; px += res) {
+      for (let py = y0 - maxR; py <= y0 + maxR; py += res) {
+        const d1 = Math.hypot(px - s1x, py - s1y);
+        const d2 = Math.hypot(px - s2x, py - s2y);
+        if (d1 > maxR || d2 > maxR) continue;
+
+        const wave1 = Math.sin(d1 * 0.06 * waveFreq - t * 2 + distortion * Math.sin(d2 * 0.04));
+        const wave2 = Math.sin(d2 * 0.06 * waveFreq - t * 2 + distortion * Math.sin(d1 * 0.04));
+        const interference = (wave1 + wave2) * 0.5;
+
+        const energy = (interference + 1) * 0.5;
+        const dist = Math.min(d1, d2);
+        const fade = Math.max(0, 1 - dist / maxR);
+
+        const hue = sHue + interference * 80 + sTreble * 60;
+        const brightness = 35 + energy * 50;
+        const sat = 70 + sBass * 30;
+        const a = energy * fade * (0.5 + sRMS * 0.5) * 0.85;
+
+        ctx.fillStyle = hsl(hue, sat, brightness, a);
+        ctx.fillRect(px - res / 2, py - res / 2, res, res);
+      }
+    }
+
+    for (const [sx, sy] of [[s1x, s1y], [s2x, s2y]]) {
+      const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, 18 + sRMS * 25);
+      sg.addColorStop(0, hsl(sHue, 100, 98, 0.95));
+      sg.addColorStop(0.4, hsl(sHue + 40, 90, 65, 0.4));
+      sg.addColorStop(1, 'rgba(0,0,0,0)');
+
+      ctx.beginPath();
+      ctx.arc(sx, sy, 18 + sRMS * 25, 0, Math.PI * 2);
+      ctx.fillStyle = sg;
+      ctx.shadowBlur = 20 + sRMS * 40;
+      ctx.shadowColor = hsl(sHue, 100, 80);
+      ctx.fill();
+    }
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  function drawRadialWave(x0, y0, w, h, alpha = 1) {
+    const baseR = Math.min(w, h) * 0.3;
+    const segments = 256;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const sampleIdx = Math.floor((i / segments) * (timeData ? timeData.length : 1));
+      const sample = timeData ? (timeData[sampleIdx] - 128) / 128 : 0;
+      const r = baseR + sample * baseR * 0.5 * (1 + sRMS * 3);
+      const px = x0 + Math.cos(angle) * r;
+      const py = y0 + Math.sin(angle) * r;
+
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+
+    ctx.closePath();
+    ctx.strokeStyle = hsl(sHue, 90, 65, 0.75);
+    ctx.lineWidth = 2 + sRMS * 4;
+    ctx.shadowBlur = 15 + sRMS * 30;
+    ctx.shadowColor = hsl(sHue, 100, 70);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(x0, y0, 12 + sBass * 22, 0, Math.PI * 2);
+    ctx.fillStyle = hsl(sHue + 25, 100, 80, 0.18);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  let lastTime = 0;
+
+  function render(now) {
+    requestAnimationFrame(render);
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    t += dt;
+
+    if (running && analyser) {
+      analyser.getByteFrequencyData(freqData);
+      analyser.getByteTimeDomainData(timeData);
+
+      const sr = audioCtx.sampleRate;
+      const rms = getRMS(timeData);
+
+      const bass = bandEnergy(freqData, sr, 80, 250);
+      const lowmid = bandEnergy(freqData, sr, 250, 800);
+      const mid = bandEnergy(freqData, sr, 800, 2500);
+      const highmid = bandEnergy(freqData, sr, 2500, 6000);
+      const treble = bandEnergy(freqData, sr, 6000, 10000);
+
+      const peak = getPeakFreq(freqData, sr);
+      const centroid = getSpectralCentroid(freqData, sr);
+
+      const sm = 0.2;
+      sRMS     = sRMS     * (1 - sm) + rms     * sm * 5;
+      sBass    = sBass    * (1 - sm) + bass    * sm * 6;
+      sLowMid  = sLowMid  * (1 - sm) + lowmid  * sm * 3;
+      sMid     = sMid     * (1 - sm) + mid     * sm * 3;
+      sHighMid = sHighMid * (1 - sm) + highmid * sm * 3;
+      sTreble  = sTreble  * (1 - sm) + treble  * sm * 3;
+
+      sPeakFreq = sPeakFreq * 0.9 + peak * 0.1;
+      sCentroid = sCentroid * 0.9 + centroid * 0.1;
+
+      const targetHue = (sPeakFreq / 800) * 80 + 160;
+      sHue = sHue * 0.7 + targetHue * 0.3;
+
+      document.getElementById('bar-bass').style.width = Math.min(100, sBass * 100) + '%';
+      document.getElementById('bar-lowmid').style.width = Math.min(100, sLowMid * 100) + '%';
+      document.getElementById('bar-mid').style.width = Math.min(100, sMid * 100) + '%';
+      document.getElementById('bar-highmid').style.width = Math.min(100, sHighMid * 100) + '%';
+      document.getElementById('bar-treble').style.width = Math.min(100, sTreble * 100) + '%';
+
+      if (sRMS > 0.04) {
+        const note = freqToNote(sPeakFreq);
+        const nd = document.getElementById('note-name');
+        const nf = document.getElementById('note-freq');
+
+        nd.textContent = note.name;
+        nd.style.color = `hsla(${sHue % 360},80%,70%,0.55)`;
+        nd.style.textShadow = `0 0 40px hsla(${sHue % 360},100%,70%,0.3)`;
+
+        nf.textContent = `${Math.round(sPeakFreq)} Hz`;
+        nf.style.color = `hsla(${sHue % 360},70%,60%,0.4)`;
+      }
+    } else {
+      sRMS = 0.02 + Math.sin(t * 0.4) * 0.015;
+      sBass = 0.05 + Math.sin(t * 0.3) * 0.03;
+      sMid = 0.04 + Math.sin(t * 0.5) * 0.025;
+      sTreble = 0.03 + Math.sin(t * 0.7) * 0.015;
+      sHighMid = 0.03;
+      sLowMid = 0.04;
+      sCentroid = 800 + Math.sin(t * 0.2) * 400;
+      sHue = (t * 15) % 360;
+    }
+
+    ctx.fillStyle = `rgba(2,11,24,${0.04 + (1 - sRMS) * 0.05})`;
+    ctx.fillRect(0, 0, W, H);
+
+    if (mode === 4) {
+      const hw = W / 2, hh = H / 2;
+
+      drawLissajous(hw * 0.5, hh * 0.5, hw, hh, 0.85);
+      drawMandala(hw * 1.5, hh * 0.5, hw, hh, 0.85);
+      drawConstellation(hw * 0.5, hh * 1.5, hw, hh, 0.85);
+      drawInterference(hw * 1.5, hh * 1.5, hw, hh, 0.85);
+
+      ctx.font = '9px "Poppins"';
+      ctx.fillStyle = 'rgba(180,255,240,0.2)';
+      ctx.fillText('LISSAJOUS', 14, 18);
+      ctx.fillText('MANDALA', hw + 14, 18);
+      ctx.fillText('CONSTELLATION', 14, hh + 18);
+      ctx.fillText('INTERFERENCE', hw + 14, hh + 18);
+
+      ctx.strokeStyle = 'rgba(180,255,240,0.06)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(hw, 0);
+      ctx.lineTo(hw, H);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(0, hh);
+      ctx.lineTo(W, hh);
+      ctx.stroke();
+    } else if (mode === 0) {
+      drawLissajous(cx, cy, W, H, 1);
+    } else if (mode === 1) {
+      drawMandala(cx, cy, W, H, 1);
+    } else if (mode === 2) {
+      drawConstellation(cx, cy, W, H, 1);
+    } else if (mode === 3) {
+      drawInterference(cx, cy, W, H, 1);
+    } else if (mode === 5) {
+      drawRadialWave(cx, cy, W, H, 1);
+    }
+  }
+
+  requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>
